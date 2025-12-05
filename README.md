@@ -26,4 +26,7 @@ Due to the privacy policy, you need to apply for the dataset through the link, w
 
 DEAP: http://www.eecs.qmul.ac.uk/mmv/datasets/deap/
 
-DREAMER: 
+DREAMER: https://zenodo.org/records/546113
+
+## Run
+
