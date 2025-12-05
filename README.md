@@ -28,5 +28,10 @@ DEAP: http://www.eecs.qmul.ac.uk/mmv/datasets/deap/
 
 DREAMER: https://zenodo.org/records/546113
 
+After download datastes, replace the **data_path** and **save_path**, run _"save_deap.py"_ and _"save_dreamer.py"_.
+
+Run _"load_deap.py"_ and _"load_dreamer.py"_ to perform data set preprocessing.
+
 ## Run
+Run _"BiMoE_deap.py"_ and _"BiMoE_dreamer.py"_.
 
