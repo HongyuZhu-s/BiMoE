@@ -4,7 +4,7 @@
 This work has been submitted anonymously to ICME 2026.<sup></sup>
 
 <p align="center">
-<img src="https://anonymous.4open.science/r/BiMoE-78D7/Framework.pdf" width=75% height=75% 
+<img src="https://anonymous.4open.science/r/BiMoE-78D7/BiMoE_framework.png" width=75% height=75% 
 class="center">
 </p>
 
