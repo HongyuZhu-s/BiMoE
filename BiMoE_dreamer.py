@@ -16,7 +16,7 @@ data_folder = "../Work2/P_dreamer_data_all"
 subject_count = 23
 
 class BiMoETrainer:
-    def __init__(self, model, device, num_classes=2, num_experts=8):  # 注意：专家数量改为8
+    def __init__(self, model, device, num_classes=2, num_experts=7):
         self.model = model.to(device)
         self.device = device
         self.num_classes = num_classes

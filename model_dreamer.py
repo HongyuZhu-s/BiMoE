@@ -87,7 +87,6 @@ class GCNLayer(nn.Module):
 class PLI_GCN_Extractor(nn.Module):
     def __init__(self, num_channels, hidden_dim=128):
         super().__init__()
-        # 移除时间池化，直接使用1秒窗口数据
         self.pli_calculator = WPLICalculator()
         self.gcn1 = GCNLayer(EEG_SEGMENT_LENGTH, hidden_dim)  # 输入128个时间点
         self.gcn2 = GCNLayer(hidden_dim, hidden_dim // 2)
@@ -97,23 +96,17 @@ class PLI_GCN_Extractor(nn.Module):
         self.dropout = nn.Dropout(0.3)
 
     def forward(self, eeg_data):
-        # eeg_data形状: [B, channels, 128]
-        x = eeg_data  # 直接使用1秒窗口数据
+        x = eeg_data
 
-        # 计算 wPLI
         wpli_matrix = self.pli_calculator(x)
 
-        # GCN
         x = F.relu(self.bn1(self.gcn1(x, wpli_matrix)))
         x = self.dropout(x)
         x = F.relu(self.bn2(self.gcn2(x, wpli_matrix)))
         x = self.dropout(x)
 
-        # 注意力
         x_attn, _ = self.attention(x, x, x)
-        # x = x + self.dropout(x_attn)
 
-        # 全局池化
         features = torch.mean(x_attn, dim=1)  # [B, 64]
 
         return features, wpli_matrix
@@ -123,7 +116,6 @@ class EnhancedPeripheralExpert(nn.Module):
     def __init__(self, input_channels=2, num_classes=2):
         super(EnhancedPeripheralExpert, self).__init__()
 
-        # 针对ECG信号的特殊处理，使用1秒窗口数据
         self.conv_layers = nn.Sequential(
             nn.Conv1d(input_channels, 16, kernel_size=15, stride=1, padding=7),
             nn.BatchNorm1d(16),
@@ -147,7 +139,7 @@ class EnhancedPeripheralExpert(nn.Module):
         )
 
     def forward(self, x):
-        # x形状: [B, 2, 256] - 1秒ECG数据
+
         features = self.conv_layers(x).squeeze(-1)  # [B, 64]
         output = self.classifier(features)
         return output
@@ -158,7 +150,6 @@ class EnhancedBrainRegionExpert(nn.Module):
         super(EnhancedBrainRegionExpert, self).__init__()
         self.expert_type = expert_type
 
-        # CNN路径 - 适应1秒窗口
         self.cnn_path = nn.Sequential(
             nn.Conv1d(input_channels, 32, kernel_size=15, stride=1, padding=7),
             nn.BatchNorm1d(32),
@@ -170,7 +161,6 @@ class EnhancedBrainRegionExpert(nn.Module):
             nn.AdaptiveAvgPool1d(1)
         )
 
-        # 对于EEG专家，添加PLI-GCN路径
         if expert_type == 'eeg':
             self.gcn_extractor = PLI_GCN_Extractor(input_channels, hidden_dim=128)
             self.gcn_fusion = nn.Sequential(
@@ -193,7 +183,6 @@ class EnhancedBrainRegionExpert(nn.Module):
             )
 
     def forward(self, x):
-        # x形状: [B, channels, 128] - 1秒EEG数据
         cnn_features = self.cnn_path(x).squeeze(-1)  # [batch, 64]
 
         if self.expert_type == 'eeg':
@@ -276,7 +265,6 @@ class EnhancedMixtureOfExperts(nn.Module):
 
         self.num_experts = len(experts_config)
 
-        # ECG全局特征提取器 - 适应1秒窗口
         self.ecg_global_extractor = nn.Sequential(
             nn.Conv1d(2, 16, kernel_size=15, stride=1, padding=7),
             nn.BatchNorm1d(16),
@@ -351,52 +339,42 @@ class EnhancedMixtureOfExperts(nn.Module):
 
 
 def preprocess_data(eeg_data, ecg_data, labels):
-    """
-    预处理数据：保留最后60秒，并按1秒窗口划分
-    """
+
     num_trials, eeg_channels, eeg_length = eeg_data.shape
     _, ecg_channels, ecg_length = ecg_data.shape
 
-    # 确保数据长度足够
-    assert eeg_length >= EEG_TOTAL_LENGTH, f"EEG数据长度不足: {eeg_length} < {EEG_TOTAL_LENGTH}"
-    assert ecg_length >= ECG_TOTAL_LENGTH, f"ECG数据长度不足: {ecg_length} < {ECG_TOTAL_LENGTH}"
+    assert eeg_length >= EEG_TOTAL_LENGTH, f"Insufficient length of EEG data: {eeg_length} < {EEG_TOTAL_LENGTH}"
+    assert ecg_length >= ECG_TOTAL_LENGTH, f"Insufficient length of ECG data: {ecg_length} < {ECG_TOTAL_LENGTH}"
 
-    # 取最后60秒数据
     eeg_60s = eeg_data[:, :, -EEG_TOTAL_LENGTH:]
     ecg_60s = ecg_data[:, :, -ECG_TOTAL_LENGTH:]
 
-    # 按1秒窗口划分
     eeg_segments = []
     ecg_segments = []
     segment_labels = []
 
     for trial_idx in range(num_trials):
         for segment_idx in range(TOTAL_DURATION):
-            # EEG片段
+
             start_idx = segment_idx * EEG_SEGMENT_LENGTH
             end_idx = start_idx + EEG_SEGMENT_LENGTH
             eeg_segment = eeg_60s[trial_idx, :, start_idx:end_idx]
             eeg_segments.append(eeg_segment)
 
-            # ECG片段
             start_idx = segment_idx * ECG_SEGMENT_LENGTH
             end_idx = start_idx + ECG_SEGMENT_LENGTH
             ecg_segment = ecg_60s[trial_idx, :, start_idx:end_idx]
             ecg_segments.append(ecg_segment)
 
-            # 标签（每个片段使用相同的trial标签）
             segment_labels.append(labels[trial_idx])
 
-    # 转换为numpy数组
     eeg_segments = np.array(eeg_segments)  # (num_trials * 60, eeg_channels, 128)
     ecg_segments = np.array(ecg_segments)  # (num_trials * 60, ecg_channels, 256)
     segment_labels = np.array(segment_labels)  # (num_trials * 60,)
 
     return eeg_segments, ecg_segments, segment_labels
 
-# ==================== 专家分歧损失 ====================
 class ExpertDisagreementLoss(nn.Module):
-    """专家分歧损失，鼓励专家学习不同的决策边界"""
 
     def __init__(self, disagreement_coef=0.05):
         super(ExpertDisagreementLoss, self).__init__()
@@ -409,28 +387,24 @@ class ExpertDisagreementLoss(nn.Module):
         batch_size = expert_logits[0].size(0)
         num_experts = len(expert_logits)
 
-        # 计算每个专家的预测概率
         expert_probs = [F.softmax(logits, dim=1) for logits in expert_logits]
 
-        # 计算专家之间的成对KL散度
         total_disagreement = 0.0
         pair_count = 0
 
         for i in range(num_experts):
             for j in range(i + 1, num_experts):
-                # 计算KL散度: KL(P_i || P_j)
                 kl_ij = F.kl_div(
                     torch.log(expert_probs[j] + 1e-8),
                     expert_probs[i] + 1e-8,
                     reduction='batchmean'
                 )
-                # 计算KL散度: KL(P_j || P_i)
                 kl_ji = F.kl_div(
                     torch.log(expert_probs[i] + 1e-8),
                     expert_probs[j] + 1e-8,
                     reduction='batchmean'
                 )
-                # 使用对称KL散度
+
                 symmetric_kl = (kl_ij + kl_ji) / 2.0
                 total_disagreement += symmetric_kl
                 pair_count += 1
@@ -438,16 +412,13 @@ class ExpertDisagreementLoss(nn.Module):
         if pair_count == 0:
             return torch.tensor(0.0, device=expert_logits[0].device)
 
-        # 平均分歧损失
         avg_disagreement = total_disagreement / pair_count
 
-        # 鼓励分歧，所以最大化KL散度（最小化负KL散度）
         disagreement_loss = -self.disagreement_coef * avg_disagreement
 
         return disagreement_loss
 
 class ExpertLoadLoss(nn.Module):
-    """专家负载损失，用于平衡专家利用率"""
 
     def __init__(self, num_experts, importance_coef=1.0, load_coef=0.1):
         super(ExpertLoadLoss, self).__init__()
@@ -456,17 +427,14 @@ class ExpertLoadLoss(nn.Module):
         self.load_coef = load_coef
 
     def forward(self, gate_weights, batch_size):
-        # 计算每个专家的利用率（批次平均）
+
         expert_utilization = torch.mean(gate_weights, dim=0)  # [num_experts]
 
-        # 计算重要性损失 - 鼓励所有专家都有相似的利用率
         target_utilization = torch.ones_like(expert_utilization) / self.num_experts
         importance_loss = F.mse_loss(expert_utilization, target_utilization)
 
-        # 计算负载损失 - 防止单个专家被过度使用
         load_loss = torch.var(expert_utilization)
 
-        # 总负载损失
         total_load_loss = self.importance_coef * importance_loss + self.load_coef * load_loss
 
         return total_load_loss

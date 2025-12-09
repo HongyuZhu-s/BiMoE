@@ -1,10 +1,4 @@
-import time
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
-from torch.utils.data import DataLoader
-from sklearn.metrics import f1_score
 from load_deap import FocalLoss, load_all_subjects
 from model_deap import *
 import warnings
@@ -127,7 +121,6 @@ class BiMoETrainer:
                 agreement_rate = self.calculate_expert_agreement(expert_predictions)
                 expert_agreement_stats.append(agreement_rate)
 
-                # 计算每个专家的准确率
                 for i in range(self.num_experts):
                     expert_correct = (expert_predictions[:, i] == labels).sum().item()
                     expert_accuracy = expert_correct / labels.size(0)
