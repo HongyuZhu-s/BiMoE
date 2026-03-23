@@ -1,7 +1,6 @@
 <div align="center">
 
 <h2>BiMoE: Brain-Inspired Experts for EEG-Dominant Affective State Recognition</a></h2>
-This work has been submitted anonymously to ICME 2026.<sup></sup>
 
 <div align="left">
 
