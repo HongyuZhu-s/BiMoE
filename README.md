@@ -18,6 +18,7 @@ class="center">
 
 ## News  
 **[2025/12]** Submit and [**Open source**](https://anonymous.4open.science/r/BiMoE-78D7)
+**[2026/03]** Accept by _ICME 2026_.
 
 ## Datasets
 We conducted extensive experiments on the [**DEAP**]([https://ieeexplore.ieee.org/abstract/document/5871728]) and [**DREAMER**]([https://ieeexplore.ieee.org/abstract/document/7887697]).
